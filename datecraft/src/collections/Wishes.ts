@@ -13,6 +13,34 @@ const Wishes: CollectionConfig = {
           equals: user.id
         }
       }
+    },
+    create: async ({req: {user}, req: {payload}}) => {
+      if (!user) { return false }
+      let citas = await payload.find({
+        collection: 'citas',
+        limit: 1,
+        where: {
+          participants: {
+            contains: user.id
+          }
+        }
+      })
+      console.log('citas totalDocs', citas.totalDocs)
+      if (citas.totalDocs <= 0) {
+        return false
+      }
+      return { 
+        and: [
+          {
+            createdBy: {
+              equals: user.id
+            }
+          },
+          {
+
+          }
+        ]
+      }
     }
   },
   fields: [
@@ -22,28 +50,33 @@ const Wishes: CollectionConfig = {
         required: true },
     { name: 'for', type: 'radio', 
         options: [
-            'him', 'her'
+            'him', 'her', 'him/her'
         ]
     },
     { name: 'category', type: 'select', 
       options: [
         'cute',
-        'familyOriented',
+        'educational',
         'fun',
+        'nasty', 
         'relaxing',
-        'spicy'
+        'romantic',
+        'intimate',
+        'spiritual'
       ]
     },
     { name: 'createdBy', type: 'relationship',
       relationTo: 'users',
       access: {
-        read: ({req: {user}}) => { return user && (user.role == 'admin')},
+        read: ({req: {user}}) => { 
+          return user && (user.role == 'admin')
+        },
         update: () => false
       },
       admin: {
         readOnly: true,
         condition: data => Boolean(data?.createdBy)
-    },
+      },
     }
   ],
   hooks: {

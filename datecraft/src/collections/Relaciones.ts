@@ -1,79 +1,117 @@
+import findByID from 'payload/dist/collections/operations/findByID'
 import { CollectionConfig } from 'payload/types'
-import AccessControl from '../utils/accessControl'
-import userModel from '../models/user'
 
 const Relaciones: CollectionConfig = {
-    slug: 'relaciones',
-    admin: {
-        useAsTitle: 'title',
-    },
-    access: {
-        create: async ({ req: { user }, req: { payload }, data: { loves } }) => {
-            // Anyone logged in can create Relaciones
-            if (!user) { return false }
+  slug: 'relaciones',
+  admin: {
+    useAsTitle: 'title',
+  },
+  access: {
+      create: async ({ req: {user} }) => {
+        if (!user) { return false }
 
-            return true
-        },
-        read: async ({ req: { user }, req: { payload } }) => {
-            if (!user) { return false }
-            if (user.role == 'admin') { return true }
-            let love  = await userModel.toLove(payload, user)
-            
-            return {
-                loves: {
-                    contains: love['id']
-                }
-            };
-        },
-        update: AccessControl.isAdminDevOrSelf,
-        delete: AccessControl.isAdminDevOrSelf
-    },
-    fields: [
-        { name: 'title', type: 'text', 
-            required: true,
-            unique: true
-        },
-        { name: 'loves', type: 'relationship', 
-            label: 'Loves', 
-            relationTo: 'loves', 
-            hasMany: true, 
-            required: true,
-            unique: true
+        return !user.relacion || user.relacion.length <= 0 
+      },
+      read: ({req: {user}}) => {
+        return {
+          participants: {
+            contains: user.id 
+          }
         }
-    ],
-    hooks: {
-        beforeChange: [
-            async ({ operation, req: { user }, req: {payload}, data}) => {
-                if (!user) { throw new Error('User not logged in')}
-                
-                if (operation == 'create') {
-                    console.log('getting relaciones for any of these', data.loves)
-                    
-                    let orQuery = []
-                    data.loves.forEach(love => {
-                        orQuery.push(
-                            { 
-                                loves: {
-                                    contains: love
-                                }
-                            }
-                        )
-                    });
-                    let committed = await payload.find({
-                        collection: 'relaciones',
-                        where: {
-                            or: orQuery
-                        }
-                    })
-                    console.log('committed', committed?.docs)
-                    if (committed?.docs?.length > 0) {
-                        throw new Error('Love in new Relacion is already committed.')
-                    }
-                }
-                return data
-            }
-        ]
+      }
+  },
+  fields: [
+    {
+      name: 'title', type: 'text', 
+      required: true
+    },
+    {
+      name: 'participants', type: 'relationship',
+      relationTo: 'users',
+      hasMany: true,
+      required: true
     }
+  ],
+  hooks: {
+    beforeChange: [
+      async ({req: {user}, req: {payload}, data}) => {
+        if (data.participants && !data.participants.includes(user.id)) {
+          data.participants.push(user.id)
+        }
+        let orQuery = []
+        data.participants.forEach((participantId) => {
+          orQuery.push({
+            participants: {
+              contains: participantId
+            }
+          })
+        })
+        let r = await payload.find({
+          collection: 'relaciones',
+          where: { or: orQuery },
+          depth: 1
+        })
+        
+        if (r?.docs?.length > 0) {
+          r.docs.forEach((rela: any) => {
+            rela.participants.forEach((id) => {
+              if(!data.participants.includes(id)) {
+                throw new Error('Users can only participate in one relationship at a time')
+              }
+            })
+          })
+        }
+        
+        if (data.participants.length <= 1) {
+          throw new Error('Relationships need more than 1 participant')
+        }
+
+        return data
+      }
+    ],
+    afterChange: [async ({ req: {payload}, doc }) => {
+      doc.participants.forEach(async (usrId) => {
+        try { 
+          let usr = await payload.findByID({
+            collection: 'users',
+            id: usrId,
+            depth: 1
+          })
+          
+          usr.relacion = doc.participants
+          delete usr.id
+          await payload.update({
+            collection: 'users',
+            id: usrId,
+            data: usr
+          })
+        } catch (e) {
+          console.log(e)
+        }
+      });
+    }],
+    afterDelete: [async ({doc, req: {payload}}) => {
+      doc.participants.forEach(async (u) => {
+            
+        try { 
+          let usr = await payload.findByID({
+            collection: 'users',
+            id: u.id
+          })
+          usr.relacion = []
+          delete usr.id
+          
+          await payload.update({
+            collection: 'users',
+            id: u.id,
+            data: usr
+          })
+        } catch (e) {
+          console.log(e)
+        }
+      });
+    }]
+  }
 }
 
 export default Relaciones

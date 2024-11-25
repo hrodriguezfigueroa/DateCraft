@@ -6,10 +6,9 @@ import { webpackBundler } from '@payloadcms/bundler-webpack'
 import { slateEditor } from '@payloadcms/richtext-slate'
 import { buildConfig } from 'payload/config'
 
-import Users from './collections/Users'
 import Citas from './collections/Citas'
 import Relaciones from './collections/Relaciones'
-import Loves from './collections/Loves'
+import Users from './collections/Users'
 import Wishes from './collections/Wishes'
 
 export default buildConfig({
@@ -19,7 +18,7 @@ export default buildConfig({
     bundler: webpackBundler(),
   },
   editor: slateEditor({}),
-  collections: [Loves, Citas, Wishes, Relaciones, Users],
+  collections: [Citas, Relaciones, Users, Wishes],
   typescript: {
     outputFile: path.resolve(__dirname, 'payload-types.ts'),
   },

@@ -75,25 +75,25 @@ const Users: CollectionConfig = {
       defaultValue: 'user',
     }, 
     { name: 'relacion', type: 'relationship', 
-      relationTo: 'relaciones'
+      relationTo: 'users',
+      hasMany: true,
+      filterOptions: async ({ user }) => {
+        return {
+          id: {
+            not_equals: user?.id
+          }
+        }
+      }
+    },
+    {
+      name: 'citas', type: 'relationship',
+      relationTo: 'citas',
+      hasMany: true
     }
   ],
   hooks: {
     afterChange: [async ({ operation, req: {payload}, req: {user}, doc}) => {
       if (operation == 'create') {
-        console.log('doc', doc)
-        try {
-          await payload.create({
-            collection: 'loves',
-            data: {
-              user: doc.id,
-              firstName: doc.firstName,
-              lastName: doc.lastName
-            }
-          })
-        } catch (e) {
-          console.log(e)
-        }
       }
     }]
   }
