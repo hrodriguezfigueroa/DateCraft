@@ -1,4 +1,3 @@
-import findByID from 'payload/dist/collections/operations/findByID'
 import { CollectionConfig } from 'payload/types'
 
 const Relaciones: CollectionConfig = {
